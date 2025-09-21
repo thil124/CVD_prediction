@@ -1,0 +1,59 @@
+*.pkl
+.ipynb_checkpoints/
+__pycache__/
+*.py[cod]
+venv/
+env/
+.venv/
+.lab/
+
+# -----------------------------
+# Editor-specific files
+# -----------------------------
+
+# VS Code
+.vscode/
+.history/
+*.code-workspace
+
+# JetBrains IDEs (IntelliJ, PyCharm, WebStorm, etc.)
+.idea/
+*.iml
+out/
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*.swp
+*.swo
+*.swm
+*.swn
+Session.vim
+
+# Emacs
+*~
+\#*\#
+.emacs.desktop
+.emacs.desktop.lock
+.tramp
+auto-save-list
+*.elc
+
+# Eclipse
+.project
+.metadata/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
