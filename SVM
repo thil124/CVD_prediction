@@ -1,0 +1,59 @@
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+from sklearn.metrics import precision_score, recall_score, confusion_matrix, roc_auc_score, RocCurveDisplay
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+final_model = Pipeline([
+    ("scaler", StandardScaler()),
+    ("svc", SVC(
+        kernel="linear",
+        C=6,
+        class_weight="balanced",
+        probability=False,
+        max_iter=5000,
+        tol=1e-3,
+        random_state=1
+    ))
+])
+
+
+final_model.fit(X_train, y_train)
+
+
+y_score = final_model.decision_function(X_test)
+y_pred = (y_score > 0.8).astype(int)
+
+tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+precision = precision_score(y_test, y_pred)   # PPV
+recall    = recall_score(y_test, y_pred)      # Sensitivity
+specificity = tn / (tn + fp) if (tn+fp)>0 else float("nan")
+npv = tn / (tn + fn) if (tn+fn)>0 else float("nan")
+auroc = roc_auc_score(y_test, y_score)
+
+print(f"Precision (PPV): {precision:.4f}")
+print(f"Recall (Sensitivity): {recall:.4f}")
+print(f"Specificity: {specificity:.4f}")
+print(f"NPV: {npv:.4f}")
+print(f"AUROC: {auroc:.4f}")
+print("Confusion Matrix [TN FP; FN TP]:")
+print(np.array([[tn, fp],[fn, tp]]))
+
+
+import seaborn as sns
+plt.figure(figsize=(6,6))
+sns.heatmap([[tn, fp],[fn, tp]], annot=True, fmt='d', cmap='Blues',
+            xticklabels=['No CVD','CVD'], yticklabels=['No CVD','CVD'])
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.show()
+
+plt.figure(figsize=(6,4))
+RocCurveDisplay.from_predictions(y_test, y_score)
+plt.plot([0,1],[0,1],'k--')
+plt.title("ROC Curve (SVM, C=6, balanced)")
+plt.show()
+
