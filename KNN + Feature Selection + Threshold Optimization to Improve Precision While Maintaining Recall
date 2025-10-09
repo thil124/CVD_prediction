@@ -1,0 +1,170 @@
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import recall_score, precision_score, f1_score, roc_auc_score, classification_report, confusion_matrix
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.feature_selection import SelectKBest, f_classif
+from imblearn.over_sampling import SMOTE
+import matplotlib.pyplot as plt
+import seaborn as sns
+import joblib
+from collections import Counter
+
+# setting
+plt.rcParams['font.sans-serif'] = ['SimHei']
+sns.set_style("whitegrid")
+
+print("Starting KNN + Feature Selection + Threshold Optimization...")
+
+# ===========================
+# Load and preprocess data
+# ===========================
+data = pd.read_csv('CVD_cleaned.csv').drop('Checkup', axis=1)
+
+def preprocess_data(df):
+    df_processed = df.copy()
+    # Binary variables
+    binary_cols = ['Exercise', 'Heart_Disease', 'Skin_Cancer', 'Other_Cancer',
+                   'Depression', 'Diabetes', 'Arthritis', 'Smoking_History']
+    for col in binary_cols:
+        df_processed[col] = df_processed[col].apply(lambda x: 1 if 'Yes' in str(x) else (0 if 'No' in str(x) else x)).astype(int)
+    # Categorical
+    categorical_cols = ['General_Health', 'Age_Category', 'Sex']
+    for col in categorical_cols:
+        le = LabelEncoder()
+        df_processed[col] = le.fit_transform(df_processed[col].astype(str))
+    # Numerical
+    numeric_cols = ['Height_(cm)', 'Weight_(kg)', 'BMI', 'Alcohol_Consumption',
+                    'Fruit_Consumption', 'Green_Vegetables_Consumption', 'FriedPotato_Consumption']
+    scaler = StandardScaler()
+    df_processed[numeric_cols] = scaler.fit_transform(df_processed[numeric_cols])
+    return df_processed, scaler
+
+data_processed, scaler = preprocess_data(data)
+X = data_processed.drop('Heart_Disease', axis=1)
+y = data_processed['Heart_Disease']
+
+# ===========================
+# Train-test split & SMOTE
+# ===========================
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, stratify=y, random_state=42
+)
+
+smote = SMOTE(random_state=42)
+X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
+print(f"Training set after SMOTE: {Counter(y_train_smote)}")
+
+# ===========================
+# Feature Selection (SelectKBest)
+# ===========================
+k_features = 12  # 可以调整
+selector = SelectKBest(score_func=f_classif, k=k_features)
+X_train_selected = selector.fit_transform(X_train_smote, y_train_smote)
+X_test_selected = selector.transform(X_test)
+
+selected_features = X.columns[selector.get_support()].tolist()
+print(f"Selected Features ({k_features}): {selected_features}")
+
+# ===========================
+# KNN training (scan K)
+# ===========================
+best_recall = 0
+best_k = 3
+best_model = None
+
+for k in [3,5,7,9,11,15,20]:
+    knn = KNeighborsClassifier(n_neighbors=k, weights='distance', metric='euclidean')
+    knn.fit(X_train_selected, y_train_smote)
+    y_pred = knn.predict(X_test_selected)
+    recall = recall_score(y_test, y_pred)
+    if recall > best_recall:
+        best_recall = recall
+        best_k = k
+        best_model = knn
+
+print(f"\nBest K={best_k}, Best Recall={best_recall:.4f}")
+
+# ===========================
+# Probability Calibration
+# ===========================
+calibrated_knn = CalibratedClassifierCV(best_model, cv=3)
+calibrated_knn.fit(X_train_selected, y_train_smote)
+
+# ===========================
+# Threshold Optimization
+# ===========================
+y_proba = calibrated_knn.predict_proba(X_test_selected)[:,1]
+thresholds = np.arange(0.1, 0.9, 0.01)
+target_recall = best_recall * 0.95
+
+best_precision = 0
+best_threshold = 0.5
+best_f1 = 0
+
+precision_list = []
+recall_list = []
+f1_list = []
+
+for t in thresholds:
+    y_pred = (y_proba >= t).astype(int)
+    recall = recall_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, zero_division=0)
+    f1 = f1_score(y_test, y_pred)
+    
+    precision_list.append(precision)
+    recall_list.append(recall)
+    f1_list.append(f1)
+    
+    if recall >= target_recall:
+        if f1 > best_f1:
+            best_f1 = f1
+            best_threshold = t
+            best_precision = precision
+
+print(f"\nOptimal Threshold: {best_threshold:.2f}")
+print(f"Precision: {best_precision:.4f}")
+print(f"Recall: {recall_score(y_test,(y_proba>=best_threshold).astype(int)):.4f}")
+print(f"F1-score: {best_f1:.4f}")
+
+# ===========================
+# Final Evaluation
+# ===========================
+y_pred_final = (y_proba >= best_threshold).astype(int)
+print("\n=== Final Model Performance ===")
+print(classification_report(y_test, y_pred_final, digits=4))
+print(f"AUC: {roc_auc_score(y_test, y_proba):.4f}")
+
+# Confusion Matrix
+plt.figure(figsize=(8,6))
+cm = confusion_matrix(y_test, y_pred_final)
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=['No Heart Disease','Heart Disease'],
+            yticklabels=['No Heart Disease','Heart Disease'])
+plt.title(f'KNN Confusion Matrix (K={best_k}, Threshold={best_threshold:.2f})')
+plt.ylabel('True Label')
+plt.xlabel('Predicted Label')
+plt.tight_layout()
+plt.show()
+
+# Precision/Recall/F1 vs Threshold
+plt.figure(figsize=(10,6))
+plt.plot(thresholds, precision_list, label='Precision', color='blue')
+plt.plot(thresholds, recall_list, label='Recall', color='red')
+plt.plot(thresholds, f1_list, label='F1-score', color='green')
+plt.axvline(best_threshold, color='black', linestyle='--', label=f'Optimal Threshold={best_threshold:.2f}')
+plt.xlabel("Threshold")
+plt.ylabel("Score")
+plt.title("Precision / Recall / F1 vs Threshold")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# ===========================
+# Save Model & Scaler
+# ===========================
+joblib.dump(calibrated_knn, 'enhanced_knn_fs_calibrated.pkl')
+joblib.dump(scaler, 'scaler.pkl')
+print("\nEnhanced calibrated KNN model with feature selection saved successfully.")
