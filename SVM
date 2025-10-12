@@ -2,20 +2,20 @@
 import optuna
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 
-N_TRIALS = 10      
-CV_FOLDS = 5      
-THRESHOLD = 0      
+N_TRIALS = 10
+CV_FOLDS = 5
+THRESHOLD = 0
 MAX_ITER = 5000
 TOL = 1e-3
 RANDOM_STATE = 1
 
 def objective(trial):
     kernel = trial.suggest_categorical('kernel', ['linear', 'rbf', 'poly'])
-    C = trial.suggest_float('C', 1e-6, 10.0, log=True)
+    C = trial.suggest_float('C', 1, 10.0, log=True)
 
     params = dict(kernel=kernel, C=C)
     if kernel in ('rbf', 'poly'):
-        params['gamma'] = trial.suggest_float('gamma', 1e-6, 10.0, log=True)
+        params['gamma'] = trial.suggest_float('gamma', 1, 10.0, log=True)
     if kernel == 'poly':
         params['degree'] = trial.suggest_int('degree', 2, 3)
 
@@ -32,7 +32,7 @@ def objective(trial):
     ])
 
     cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
-  
+
     return cross_val_score(model, X_train, y_train,
                            scoring="roc_auc", cv=cv, n_jobs=-1).mean()
 
@@ -73,9 +73,9 @@ for rank, tr in enumerate(top_trials, start=1):
 
     svc_kwargs = dict(kernel=kernel, C=C)
     if gamma is not None:
-        svc_kwargs['gamma'] = float(gamma)   # 仅 rbf/poly
+        svc_kwargs['gamma'] = float(gamma)
     if degree is not None:
-        svc_kwargs['degree'] = int(degree)   # 仅 poly
+        svc_kwargs['degree'] = int(degree)
 
     final_model = Pipeline([
         ("scaler", StandardScaler()),
