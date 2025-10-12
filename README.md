@@ -6,23 +6,24 @@ In this project we are specifically looking at using non clinical data, meaning 
 
 ## Running the project
 
-This project uses jupyter notebooks. To run the code, press "run all"
+This project uses jupyter notebooks and R. To run the code, press "run all"
 
 ## Data
 
-Our data, contained in the **CVD_cleaned.csv** file is sourced from [here](https://www.kaggle.com/datasets/harshwardhanfartale/cardiovascular-disease-risk-prediction-dataset?resource=download).
+Our data, contained in the **CVD_cleaned.csv** file is sourced [here](https://www.kaggle.com/datasets/harshwardhanfartale/cardiovascular-disease-risk-prediction-dataset?resource=download).
 
-It is a dataset of over 300 thousand UK participants, that indicates their health along with some lifestyle data at time t, and whether they got diagnosed with a CVD in the next 10 years.
+It is a dataset of over 300,000 UK-based participants, that indicates their health along with some lifestyle data at time t, and whether they got diagnosed with a CVD in the next 10 years (Heart_Disease).
 
 ## Models
 
 The models we are currently looked at are:
 - LightGBM
-- KNN
-- SVM
+- k-Nearest Neighbors (KNN)
+- Support Vector Machine (SVM)
 - XGBoost
-- RF
-- LR
+- Random Forest (RF)
+- Logistic Regression (LR)
+- Multi-layer Perceptron (MLP)
 
 ## Group members
 
